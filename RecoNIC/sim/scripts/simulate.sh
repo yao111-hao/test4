@@ -35,17 +35,54 @@ run_questasim()
   top_module_name="$3"
   top_module_opt="${top_module_name}_opt"
 
-  # Compile
-  source questasim_compile.do 2>&1 | tee -a questasim_compile.log
+  # Compile - 检查是否为HBM testbench
+  if [[ "$3" == *"hbm"* ]]; then
+    echo "INFO: 检测到HBM testbench，使用HBM编译脚本"
+    if [[ -f "questasim_compile_hbm.do" ]]; then
+      source questasim_compile_hbm.do 2>&1 | tee -a questasim_compile_hbm.log
+    else
+      echo "ERROR: questasim_compile_hbm.do 不存在，请先运行 setup_hbm_simulation.sh"
+      exit 1
+    fi
+  else
+    echo "INFO: 使用标准编译脚本"
+    source questasim_compile.do 2>&1 | tee -a questasim_compile.log
+  fi
 
   # Elaborate, reco - RecoNIC work library 
-  vopt -64 +acc=npr -L reco -L xilinx_vip -L xpm -L axi_crossbar_v2_1_26 -L axi_protocol_checker_v2_0_11 -L cam_v2_2_2 -L vitis_net_p4_v1_0_2 -L blk_mem_gen_v8_4_5 -L lib_bmg_v1_0_14 -L fifo_generator_v13_2_6 -L lib_fifo_v1_0_15 -L ernic_v3_1_1 -L unisims_ver -L unimacro_ver -L secureip -work reco reco.$top_module_name reco.glbl -o $top_module_opt -l questasim_elaborate.log
+  if [[ "$3" == *"hbm"* ]]; then
+    echo "INFO: HBM testbench详细设计 - 添加HBM相关库"
+    vopt -64 +acc=npr -L reco -L xilinx_vip -L xpm \
+      -L axi_crossbar_v2_1_26 -L axi_protocol_checker_v2_0_11 \
+      -L axi_clock_converter_v2_1_24 -L smartconnect_v1_0 \
+      -L proc_sys_reset_v5_0_13 -L clk_wiz_v6_0_5 \
+      -L xlconstant_v1_1_7 -L hbm_v1_0_13 \
+      -L cam_v2_2_2 -L vitis_net_p4_v1_0_2 \
+      -L blk_mem_gen_v8_4_5 -L lib_bmg_v1_0_14 \
+      -L fifo_generator_v13_2_6 -L lib_fifo_v1_0_15 \
+      -L ernic_v3_1_1 -L unisims_ver -L unimacro_ver -L secureip \
+      -work reco reco.$top_module_name reco.glbl \
+      -o $top_module_opt -l questasim_elaborate_hbm.log
+  else
+    echo "INFO: 标准testbench详细设计"  
+    vopt -64 +acc=npr -L reco -L xilinx_vip -L xpm -L axi_crossbar_v2_1_26 -L axi_protocol_checker_v2_0_11 -L cam_v2_2_2 -L vitis_net_p4_v1_0_2 -L blk_mem_gen_v8_4_5 -L lib_bmg_v1_0_14 -L fifo_generator_v13_2_6 -L lib_fifo_v1_0_15 -L ernic_v3_1_1 -L unisims_ver -L unimacro_ver -L secureip -work reco reco.$top_module_name reco.glbl -o $top_module_opt -l questasim_elaborate.log
+  fi
 
   # Simulate
-  if [[ $2 == "off" ]]; then
-    vsim -64 -c -work reco $top_module_opt -do 'add wave -r /*; run -all' -l questasim_simulate.log
+  if [[ "$3" == *"hbm"* ]]; then
+    echo "INFO: 运行HBM仿真"
+    if [[ $2 == "off" ]]; then
+      vsim -64 -c -work reco $top_module_opt -do 'add wave -r /*; run -all' -l questasim_simulate_hbm.log
+    else
+      vsim -64 -work reco $top_module_opt -do 'add wave -r /*; run -all' -l questasim_simulate_hbm.log
+    fi
   else
-    vsim -64 -work reco $top_module_opt -do 'add wave -r /*; run -all' -l questasim_simulate.log
+    echo "INFO: 运行标准仿真"
+    if [[ $2 == "off" ]]; then
+      vsim -64 -c -work reco $top_module_opt -do 'add wave -r /*; run -all' -l questasim_simulate.log
+    else
+      vsim -64 -work reco $top_module_opt -do 'add wave -r /*; run -all' -l questasim_simulate.log
+    fi
   fi
 }
 

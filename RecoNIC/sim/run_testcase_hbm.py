@@ -20,11 +20,19 @@ sys.path.append(str(sim_dir))
 
 # 导入原始的packet_gen模块
 import packet_gen
-import config_logger
+
+# 全局logger对象
+logger = None
 
 def setup_logging():
     """设置日志配置"""
-    config_logger.setup_logger()
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(levelname)s:%(name)s:%(message)s'
+    )
+    # 创建与原始脚本兼容的logger对象
+    global logger
+    logger = logging.getLogger('run_testcase_hbm')
 
 def parse_arguments():
     """解析命令行参数"""
@@ -82,16 +90,22 @@ def check_hbm_setup():
     logging.info(f"HBM块设计已准备: {hbm_bd_dir}")
 
 def generate_packets(testcase, roce_mode):
-    """生成测试数据包"""
+    """生成测试数据包（使用原始的packet_gen模式）"""
     testcase_dir = sim_dir / "testcases" / testcase
     if not testcase_dir.exists():
         logging.error(f"测试用例目录不存在: {testcase_dir}")
         sys.exit(1)
     
-    config_file = testcase_dir / f"{testcase}.json"
-    if not config_file.exists():
-        logging.error(f"测试用例配置文件不存在: {config_file}")
+    config_files = list(testcase_dir.glob("*.json"))
+    if len(config_files) == 0:
+        logging.error(f"测试用例配置文件不存在: {testcase_dir}")
         sys.exit(1)
+    elif len(config_files) > 1:
+        logging.error(f"测试用例目录包含多个配置文件: {config_files}")
+        sys.exit(1)
+    
+    config_file = str(config_files[0])
+    logging.info(f"使用配置文件: {config_file}")
     
     # 读取配置
     with open(config_file, 'r') as f:
@@ -99,47 +113,88 @@ def generate_packets(testcase, roce_mode):
     
     # 为HBM系统修改配置
     if "top_module" in config:
-        # 将top_module更改为HBM版本
-        if config["top_module"] == "rn_tb_top":
-            config["top_module"] = "rn_tb_top_hbm"
-        elif config["top_module"] == "rn_tb_2rdma_top":
-            config["top_module"] = "rn_tb_2rdma_top_hbm"  # 如果需要的话
+        original_top = config["top_module"]
+        # 强制使用HBM testbench
+        config["top_module"] = "rn_tb_top_hbm"
+        logging.info(f"顶层模块: {original_top} -> {config['top_module']}")
     
     logging.info(f"生成测试用例数据包: {testcase}")
-    logging.info(f"使用配置: {config}")
     
     # 切换到构建目录
     build_dir = sim_dir / "build"
     build_dir.mkdir(exist_ok=True)
     os.chdir(build_dir)
     
-    # 使用packet_gen生成数据包
+    # 使用原始的packet_gen.pktGenClass生成数据包
     try:
-        packet_gen.generate_test_data(config, roce_mode)
+        logging.info("创建数据包生成器...")
+        pkt_gen = packet_gen.pktGenClass(config_file)
+        
+        # 根据配置文件中的top_module决定生成类型
+        top_module = config.get("top_module", "rn_tb_top_hbm")
+        
+        if top_module == "cl_tb_top":
+            # Compute Logic仿真
+            logging.info("生成Compute Logic仿真文件...")
+            pkt_gen.gen_cl_stimulus()
+            
+            # 写入CL相关文件
+            cl_init_mem_file = "cl_init_mem.txt"
+            cl_ctl_cmd_file = "cl_ctl_cmd.txt" 
+            cl_golden_data_file = "cl_golden_data.txt"
+            
+            pkt_gen.write2file(cl_init_mem_file, '', pkt_gen.cl_init_mem)
+            pkt_gen.write2file(cl_ctl_cmd_file, '', pkt_gen.ctl_cmd_lst)
+            pkt_gen.write2file(cl_golden_data_file, '', pkt_gen.cl_golden_mem)
+            
+        else:
+            # 网络/RDMA仿真
+            if roce_mode:
+                logging.info("生成RDMA配置和数据包文件...")
+                # 生成RDMA相关文件
+                pkt_gen.gen_rdma_stimulus()
+                # 生成数据包文件
+                pkt_gen.gen_pkt()
+            else:
+                logging.info("生成网络数据包文件...")
+                # 仅生成数据包
+                pkt_gen.gen_pkt()
+        
         logging.info("数据包生成成功")
     except Exception as e:
         logging.error(f"数据包生成失败: {e}")
+        import traceback
+        logging.error(f"详细错误: {traceback.format_exc()}")
         sys.exit(1)
 
 def run_simulation(testcase, gui_mode, top_module):
-    """运行Questasim仿真"""
+    """运行Questasim仿真（使用原始的simulate.sh命令格式）"""
     scripts_dir = sim_dir / "scripts"
-    os.chdir(scripts_dir)
-    
-    gui_arg = "on" if gui_mode else "off"
-    
-    cmd = ["./simulate_hbm.sh", testcase, gui_arg, top_module]
-    
-    logging.info(f"运行HBM Questasim仿真命令: {' '.join(cmd)}")
+    orig_dir = os.getcwd()
     
     try:
-        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
-        logging.info("HBM仿真完成")
-        print(result.stdout)
-    except subprocess.CalledProcessError as e:
-        logging.error(f"HBM仿真失败: {e}")
-        print(e.stderr)
-        sys.exit(1)
+        os.chdir(scripts_dir)
+        
+        gui_flag = "on" if gui_mode else "off"
+        sim_tool = "questasim"  # HBM仅支持questasim
+        
+        # 使用原始simulate.sh的标准命令行参数格式
+        sim_cmd = f"./simulate.sh -top {top_module} -g {gui_flag} -t {testcase} -s {sim_tool}"
+        
+        logging.info(f"运行HBM仿真命令: {sim_cmd}")
+        logging.info("注意: 使用原始的simulate.sh，它应该能处理HBM testbench")
+        
+        # 使用os.system与原始脚本保持一致
+        result = os.system(sim_cmd)
+        
+        if result == 0:
+            logging.info(f"HBM仿真完成: {testcase}")
+        else:
+            logging.error(f"HBM仿真失败，退出码: {result}")
+            sys.exit(1)
+            
+    finally:
+        os.chdir(orig_dir)
 
 def run_regression():
     """运行HBM回归测试"""
