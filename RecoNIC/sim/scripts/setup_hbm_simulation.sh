@@ -51,18 +51,22 @@ fi
 
 echo "INFO: 正在生成HBM系统和相关IP..."
 
-# 生成HBM相关的IP和块设计
-cd $sim_script_dir
+# 首先生成基础IP
+echo "INFO: 生成基础仿真IP..."
 $VIVADO_DIR/bin/vivado -mode batch -source gen_vivado_ip_hbm.tcl -tclargs $board_repo_arg
 
+# 然后生成design_1块设计（使用简化脚本）
+echo "INFO: 生成design_1 HBM块设计..."
+$VIVADO_DIR/bin/vivado -mode batch -source gen_design_1_simple.tcl -tclargs $board_repo_arg
+
 if [[ $? -eq 0 ]]; then
-    echo "INFO: HBM IP和块设计生成成功"
+    echo "INFO: HBM块设计生成成功"
     echo "INFO: 生成的文件位置:"
-    echo "  - IP文件: ${build_dir}/ip/"
-    echo "  - 块设计: ${build_dir}/ip/design_1/"
-    echo "  - 仿真文件: ${build_dir}/ip/design_1/sim/"
+    echo "  - 基础IP: ${build_dir}/ip/"
+    echo "  - design_1块设计: ${build_dir}/ip/design_1/"
+    echo "  - design_1 wrapper: ${build_dir}/ip/design_1/sim/design_1_wrapper.v"
 else
-    echo "ERROR: HBM IP和块设计生成失败"
+    echo "ERROR: HBM块设计生成失败"
     exit 1
 fi
 
