@@ -1,0 +1,13 @@
+#-----------------------------------------------------------
+# Vivado v2021.2 (64-bit)
+# SW Build 3367213 on Tue Oct 19 02:47:39 MDT 2021
+# IP Build 3369179 on Thu Oct 21 08:25:16 MDT 2021
+# Start of session at: Wed Sep 10 21:23:49 2025
+# Process ID: 3950716
+# Current directory: /mnt/2T/vivado/NIC/reco-nic/reco_sim_3_yun_1/RecoNIC/sim/scripts
+# Command line: vivado -mode batch -source gen_vivado_ip_hbm.tcl -tclargs -board_repo /mnt/2T/vivado/NIC/reco-nic/reco_built_u250/XilinxBoardStore
+# Log file: /mnt/2T/vivado/NIC/reco-nic/reco_sim_3_yun_1/RecoNIC/sim/scripts/vivado.log
+# Journal file: /mnt/2T/vivado/NIC/reco-nic/reco_sim_3_yun_1/RecoNIC/sim/scripts/vivado.jou
+# Running On: 3090-1, OS: Linux, CPU Frequency: 4813.607 MHz, CPU Physical cores: 8, Host memory: 67173 MB
+#-----------------------------------------------------------
+source gen_vivado_ip_hbm.tcl
