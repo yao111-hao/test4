@@ -1,3 +1,5 @@
 /RecoNIC/sim/build
 RecoNIC/sim/scripts/vivado.jou
 RecoNIC/sim/scripts/vivado.log
+RecoNIC/sim/scripts/*.jou
+RecoNIC/sim/scripts/*.log
