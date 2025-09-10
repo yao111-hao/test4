@@ -131,7 +131,7 @@ launch_runs axi_sys_mm_synth_1 -jobs 8
 wait_on_run axi_sys_mm_synth_1
 puts "✓ axi_sys_mm 生成成功"
 
-# 3. 创建 axi_protocol_checker
+# 3. 创建 axi_protocol_checker（使用正确的参数）
 puts ""
 puts "[3/3] 创建 axi_protocol_checker..."
 if {[file exists ${ip_build_dir}/axi_protocol_checker]} {
@@ -140,21 +140,17 @@ if {[file exists ${ip_build_dir}/axi_protocol_checker]} {
 
 create_ip -name axi_protocol_checker -vendor xilinx.com -library ip -version 2.0 -module_name axi_protocol_checker -dir $ip_build_dir
 
+# 使用与原始项目一致的配置参数
 set_property -dict {
-    CONFIG.PROTOCOL {AXI4}
+    CONFIG.ADDR_WIDTH {64}
     CONFIG.DATA_WIDTH {512}
-    CONFIG.ID_WIDTH {4}
-    CONFIG.AWUSER_WIDTH {32}
-    CONFIG.ARUSER_WIDTH {32}
-    CONFIG.WUSER_WIDTH {64}
-    CONFIG.RUSER_WIDTH {64}
-    CONFIG.BUSER_WIDTH {0}
-    CONFIG.CHK_PARAMS {1}
+    CONFIG.READ_WRITE_MODE {read_write}
+    CONFIG.MAX_RD_BURSTS {16}
+    CONFIG.MAX_WR_BURSTS {16}
+    CONFIG.HAS_SYSTEM_RESET {0}
+    CONFIG.ENABLE_MARK_DEBUG {1}
+    CONFIG.CHK_ERR_RESP {0}
     CONFIG.HAS_WSTRB {1}
-    CONFIG.MAX_WR_OUTSTANDING_TRANSACTIONS {8}
-    CONFIG.MAX_RD_OUTSTANDING_TRANSACTIONS {8}
-    CONFIG.MAX_RD_BURST_LENGTH {16}
-    CONFIG.MAX_WR_BURST_LENGTH {16}
 } [get_ips axi_protocol_checker]
 
 generate_target all [get_files ${ip_build_dir}/axi_protocol_checker/axi_protocol_checker.xci]
