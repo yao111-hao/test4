@@ -2,8 +2,13 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: MIT
 #
-# 简化的design_1 HBM块设计生成脚本（避免export_simulation问题）
+# design_1 HBM块设计生成脚本
 #==============================================================================
+
+puts "========================================="
+puts "RecoNIC design_1 HBM块设计生成脚本"
+puts "========================================="
+
 array set build_options {
   -board_repo ""
 }
@@ -26,9 +31,10 @@ foreach {key value} [array get build_options] {
 }
 
 if {[string equal $board_repo ""]} {
-  puts "INFO: 如果出现板级定义错误，请在命令行提供 -board_repo 参数"
+  puts "INFO: 如果出现板级定义错误，请提供 -board_repo 参数"
 } else {
   set_param board.repoPaths $board_repo
+  puts "INFO: 使用板级仓库: $board_repo"
 }
 
 set vivado_version 2021.2
@@ -43,10 +49,24 @@ set ip_build_dir $build_dir/ip
 set build_managed_ip_dir $build_dir/managed_ip
 set hbm_subsystem_dir $root_dir/base_nics/open-nic-shell/src/hbm_subsystem
 
+puts "INFO: 路径配置:"
+puts "  Root目录: $root_dir"
+puts "  HBM子系统目录: $hbm_subsystem_dir"
+puts "  构建目录: $build_dir"
+
+# 检查design_1.tcl文件是否存在
+set design_1_tcl "${hbm_subsystem_dir}/design_1.tcl"
+if {![file exists $design_1_tcl]} {
+    puts "ERROR: design_1.tcl文件不存在: $design_1_tcl"
+    exit 1
+}
+puts "INFO: 找到design_1.tcl文件: $design_1_tcl"
+
+# 创建目录
 file mkdir $ip_build_dir
 file mkdir $build_managed_ip_dir
 
-puts "INFO: 简化生成design_1 HBM块设计"
+puts "INFO: 创建design_1项目..."
 create_project -force design_1_project $build_managed_ip_dir -part $part
 set_property BOARD_PART $board_part [current_project]
 
@@ -57,35 +77,47 @@ set bd_dir ${ip_build_dir}/${bd_name}
 
 # 创建块设计
 create_bd_design $bd_name
+puts "INFO: 块设计 $bd_name 创建成功"
 
 # 执行用户的design_1.tcl脚本
-source ${hbm_subsystem_dir}/design_1.tcl
+puts "INFO: 执行用户的design_1.tcl脚本..."
+source $design_1_tcl
+puts "INFO: design_1.tcl执行完成"
 
-# 验证和生成
+# 验证块设计
+puts "INFO: 验证块设计..."
 validate_bd_design
-generate_target all [get_files ${bd_name}.bd]
+puts "INFO: 块设计验证通过"
 
-# 创建wrapper文件
+# 生成所有输出产品
+puts "INFO: 生成块设计输出产品..."
+generate_target all [get_files ${bd_name}.bd]
+puts "INFO: 输出产品生成完成"
+
+# 创建HDL wrapper
+puts "INFO: 创建HDL wrapper..."
 make_wrapper -files [get_files ${bd_name}.bd] -top
 
-# 等待文件生成
-after 2000
+# 等待wrapper文件生成
+after 3000
+puts "INFO: 等待wrapper文件生成完成"
 
-# 查找并复制wrapper文件
+# 查找wrapper文件
 set project_dir [get_property directory [current_project]]
 set wrapper_patterns [list \
     "$project_dir/design_1_project.gen/sources_1/bd/${bd_name}/hdl/${bd_name}_wrapper.v" \
     "$project_dir/design_1_project.srcs/sources_1/bd/${bd_name}/hdl/${bd_name}_wrapper.v"]
 
+puts "INFO: 查找wrapper文件..."
 set wrapper_found 0
-file mkdir ${bd_dir}
-file mkdir ${bd_dir}/sim
+set wrapper_file ""
 
 foreach wrapper_pattern $wrapper_patterns {
+    puts "  检查: $wrapper_pattern"
     if {[file exists $wrapper_pattern]} {
-        file copy -force $wrapper_pattern ${bd_dir}/sim/${bd_name}_wrapper.v
-        puts "INFO: Wrapper文件已复制: $wrapper_pattern -> ${bd_dir}/sim/"
+        set wrapper_file $wrapper_pattern
         set wrapper_found 1
+        puts "INFO: 找到wrapper文件: $wrapper_pattern"
         break
     }
 }
@@ -96,12 +128,40 @@ if {!$wrapper_found} {
     foreach pattern $wrapper_patterns {
         puts "  $pattern"
     }
+    
+    # 列出实际存在的文件
+    puts "实际项目目录内容:"
+    set gen_dir "$project_dir/design_1_project.gen"
+    if {[file exists $gen_dir]} {
+        puts "  gen目录存在: $gen_dir"
+        set gen_bd_dir "$gen_dir/sources_1/bd"
+        if {[file exists $gen_bd_dir]} {
+            puts "  bd目录存在: $gen_bd_dir"
+            set contents [glob -nocomplain "$gen_bd_dir/*"]
+            foreach item $contents {
+                puts "    $item"
+            }
+        }
+    }
     exit 1
 }
 
-# 生成简化的仿真文件
-generate_target simulation [get_files ${bd_name}.bd]
+# 创建仿真目录并复制wrapper
+file mkdir ${bd_dir}
+file mkdir ${bd_dir}/sim
+file copy -force $wrapper_file ${bd_dir}/sim/${bd_name}_wrapper.v
+puts "INFO: Wrapper文件已复制到: ${bd_dir}/sim/${bd_name}_wrapper.v"
 
-puts "INFO: design_1块设计生成完成"
-puts "INFO: Wrapper文件位置: ${bd_dir}/sim/design_1_wrapper.v"
-puts "INFO: 现在可以运行Questasim仿真"
+# 生成仿真目标
+puts "INFO: 生成仿真目标..."
+generate_target simulation [get_files ${bd_name}.bd]
+puts "INFO: 仿真目标生成完成"
+
+puts ""
+puts "========================================="
+puts "design_1块设计生成完成"
+puts "========================================="
+puts "块设计位置: ${bd_dir}"
+puts "Wrapper文件: ${bd_dir}/sim/design_1_wrapper.v"
+puts "状态: 准备就绪，可以运行Questasim仿真"
+puts "========================================="

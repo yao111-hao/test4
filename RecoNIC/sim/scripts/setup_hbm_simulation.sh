@@ -49,24 +49,52 @@ else
     board_repo_arg=""
 fi
 
-echo "INFO: 正在生成HBM系统和相关IP..."
+echo "INFO: 正在生成HBM仿真环境..."
 
-# 首先生成基础IP
-echo "INFO: 生成基础仿真IP..."
+# 第一步：生成基础仿真IP
+echo "============================================"
+echo "步骤1: 生成基础仿真IP"
+echo "============================================"
 $VIVADO_DIR/bin/vivado -mode batch -source gen_vivado_ip_hbm.tcl -tclargs $board_repo_arg
 
-# 然后生成design_1块设计（使用简化脚本）
-echo "INFO: 生成design_1 HBM块设计..."
+if [[ $? -ne 0 ]]; then
+    echo "ERROR: 基础IP生成失败"
+    exit 1
+fi
+
+echo "INFO: 基础IP生成成功"
+
+# 第二步：生成design_1 HBM块设计
+echo ""
+echo "============================================"  
+echo "步骤2: 生成design_1 HBM块设计"
+echo "============================================"
 $VIVADO_DIR/bin/vivado -mode batch -source gen_design_1_simple.tcl -tclargs $board_repo_arg
 
 if [[ $? -eq 0 ]]; then
-    echo "INFO: HBM块设计生成成功"
-    echo "INFO: 生成的文件位置:"
-    echo "  - 基础IP: ${build_dir}/ip/"
-    echo "  - design_1块设计: ${build_dir}/ip/design_1/"
-    echo "  - design_1 wrapper: ${build_dir}/ip/design_1/sim/design_1_wrapper.v"
+    echo ""
+    echo "============================================"
+    echo "HBM仿真环境生成成功！"
+    echo "============================================"
+    echo "生成的文件:"
+    echo "  ✓ 基础IP: ${build_dir}/ip/"
+    echo "  ✓ design_1块设计: ${build_dir}/ip/design_1/"
+    echo "  ✓ design_1 wrapper: ${build_dir}/ip/design_1/sim/design_1_wrapper.v"
+    echo ""
+    
+    # 验证关键文件
+    if [[ -f "${build_dir}/ip/design_1/sim/design_1_wrapper.v" ]]; then
+        echo "  ✓ design_1_wrapper.v 验证通过"
+    else
+        echo "  ❌ design_1_wrapper.v 验证失败"
+    fi
+    
 else
-    echo "ERROR: HBM块设计生成失败"
+    echo "ERROR: design_1块设计生成失败"
+    echo "请检查:"
+    echo "  1. design_1.tcl文件是否存在"
+    echo "  2. 板级定义是否正确" 
+    echo "  3. Vivado版本是否为2021.2"
     exit 1
 fi
 
