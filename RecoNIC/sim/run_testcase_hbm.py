@@ -121,31 +121,31 @@ def generate_packets(testcase, roce_mode):
         logging.error(f"数据包生成失败: {e}")
         sys.exit(1)
 
-def run_simulation(testcase, simulator, gui_mode, top_module):
-    """运行仿真"""
+def run_simulation(testcase, gui_mode, top_module):
+    """运行Questasim仿真"""
     scripts_dir = sim_dir / "scripts"
     os.chdir(scripts_dir)
     
     gui_arg = "on" if gui_mode else "off"
     
-    cmd = ["./simulate_hbm.sh", testcase, gui_arg, top_module, simulator]
+    cmd = ["./simulate_hbm.sh", testcase, gui_arg, top_module]
     
-    logging.info(f"运行仿真命令: {' '.join(cmd)}")
+    logging.info(f"运行HBM Questasim仿真命令: {' '.join(cmd)}")
     
     try:
         result = subprocess.run(cmd, check=True, capture_output=True, text=True)
-        logging.info("仿真完成")
+        logging.info("HBM仿真完成")
         print(result.stdout)
     except subprocess.CalledProcessError as e:
-        logging.error(f"仿真失败: {e}")
+        logging.error(f"HBM仿真失败: {e}")
         print(e.stderr)
         sys.exit(1)
 
 def run_regression():
-    """运行回归测试"""
-    testcases = ["read_2rdma", "write_2rdma", "send_2rdma"]
+    """运行HBM回归测试"""
+    testcases = ["read_2rdma_hbm", "write_2rdma_hbm"]
     
-    logging.info("开始运行HBM回归测试")
+    logging.info("开始运行HBM回归测试（仅Questasim）")
     
     for tc in testcases:
         logging.info(f"运行测试用例: {tc}")
@@ -154,7 +154,7 @@ def run_regression():
             generate_packets(tc, True)
             
             # 运行仿真
-            run_simulation(tc, "xsim", False, "rn_tb_top_hbm")
+            run_simulation(tc, False, "rn_tb_top_hbm")
             
             logging.info(f"测试用例 {tc} 完成")
         except Exception as e:
@@ -180,16 +180,22 @@ def main():
         sys.exit(1)
     
     testcase = args.tc
-    simulator = "questasim" if args.questasim else "xsim"
+    
+    # HBM仅支持Questasim
+    if args.questasim:
+        logging.info("HBM仿真强制使用Questasim")
+    else:
+        logging.warning("注意：HBM仅支持Questasim仿真器")
     
     # 确定顶层模块
     testcase_config_file = sim_dir / "testcases" / testcase / f"{testcase}.json"
     if testcase_config_file.exists():
         with open(testcase_config_file, 'r') as f:
             config = json.load(f)
-        top_module = config.get("top_module", "rn_tb_top")
-        # 转换为HBM版本
-        if top_module == "rn_tb_top":
+        top_module = config.get("top_module", "rn_tb_top_hbm")
+        # 强制转换为HBM版本
+        if top_module != "rn_tb_top_hbm":
+            logging.info(f"将顶层模块从 {top_module} 转换为 rn_tb_top_hbm")
             top_module = "rn_tb_top_hbm"
     else:
         top_module = "rn_tb_top_hbm"
@@ -202,7 +208,7 @@ def main():
     
     # 运行仿真（除非禁用）
     if not args.no_sim:
-        run_simulation(testcase, simulator, args.gui, top_module)
+        run_simulation(testcase, args.gui, top_module)
 
 if __name__ == "__main__":
     main()

@@ -2,27 +2,34 @@
 
 本指南介绍如何为基于HBM内存的RecoNIC网卡项目设置和运行仿真环境。
 
+## 重要说明
+
+**⚠️ HBM仿真仅支持Questasim，不支持Xsim**
+
+HBM IP核的复杂性要求使用Questasim仿真器，且需要60us的复位时间。
+
 ## 系统概述
 
 原项目使用DDR4作为设备内存，现在已升级为使用HBM (High Bandwidth Memory)。主要变化包括：
 
-1. **内存系统**: DDR4 → HBM
-2. **互连系统**: `axi_3to1_interconnect_to_dev_mem` → `design_1` 块设计
-3. **时钟系统**: 增加了100MHz差分时钟用于HBM
-4. **仿真架构**: 新增支持HBM的仿真模块和脚本
+1. **内存系统**: DDR4 → HBM (使用`design_1`块设计)
+2. **互连系统**: `axi_3to1_interconnect_to_dev_mem` → `design_1_wrapper`
+3. **时钟系统**: 增加了100MHz差分时钟用于HBM  
+4. **仿真架构**: 直接使用`design_1`块设计，内部包含smartconnect和时钟转换
+5. **复位系统**: HBM需要60us复位时间
 
 ## 环境准备
 
 ### 1. 环境变量设置
 
 ```bash
-# 设置Vivado路径
+# 设置Vivado路径（必需）
 export VIVADO_DIR=/your/vivado/installation/path/Vivado/2021.2
 
-# 如果使用Questasim，设置编译库路径
+# 设置Questasim编译库路径（HBM仿真必需）
 export COMPILED_LIB_DIR=/your/vivado/compiled_lib_dir/for/questasim
 
-# 如果遇到板级定义错误，设置板级仓库路径
+# 如果遇到板级定义错误，设置板级仓库路径（可选）
 export BOARD_REPO=/your/xilinx/board/repository/path
 ```
 
@@ -65,11 +72,11 @@ RecoNIC/sim/build/ip/axi_sys_mm/        # 系统内存模型
 ```bash
 cd RecoNIC/sim
 
-# 使用Xsim运行HBM仿真
-python run_testcase_hbm.py -roce -tc read_2rdma -gui
+# 使用Questasim运行HBM仿真（仅支持的仿真器）
+python run_testcase_hbm.py -roce -tc read_2rdma_hbm -gui
 
-# 使用Questasim运行HBM仿真
-python run_testcase_hbm.py -roce -tc read_2rdma -questasim -gui
+# 无GUI模式
+python run_testcase_hbm.py -roce -tc read_2rdma_hbm
 
 # 运行回归测试
 python run_testcase_hbm.py regression

@@ -2,7 +2,7 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: MIT
 #
-# 为HBM系统生成IP和块设计的脚本
+# 为HBM块设计生成仿真支持文件的脚本
 #==============================================================================
 array set build_options {
   -board_repo ""
@@ -50,12 +50,12 @@ set hbm_subsystem_dir $root_dir/base_nics/open-nic-shell/src/hbm_subsystem
 file mkdir $ip_build_dir
 file mkdir $build_managed_ip_dir
 
-puts "INFO: Building HBM subsystem and required IPs for simulation"
+puts "INFO: Building design_1 HBM block design and required IPs for Questasim simulation"
 create_project -force managed_ip_project $build_managed_ip_dir -part $part
 set_property BOARD_PART $board_part [current_project]
 
-# 1. 首先生成标准IP核
-puts "INFO: Generating standard IP cores..."
+# 1. 生成仿真所需的基础IP核
+puts "INFO: Generating basic simulation IP cores..."
 source ${ip_src_dir}/vivado_ip/sim_vivado_ip_hbm.tcl
 foreach ip $ips {
   set xci_file ${ip_build_dir}/$ip/$ip.xci
@@ -68,62 +68,47 @@ foreach ip $ips {
   puts "INFO: $ip is generated"
 }
 
-# 2. 生成HBM块设计
-puts "INFO: Generating HBM block design..."
+# 2. 生成design_1 HBM块设计
+puts "INFO: Generating design_1 HBM block design for simulation..."
 set bd_name design_1
 set bd_dir ${ip_build_dir}/${bd_name}
 file mkdir $bd_dir
 
-# 创建块设计
+# 创建块设计项目
 create_bd_design $bd_name
 
-# 执行HBM块设计的TCL脚本
+# 执行用户的design_1.tcl脚本
 source ${hbm_subsystem_dir}/design_1.tcl
 
-# 生成输出产品
+# 验证块设计
+validate_bd_design
+
+# 生成所有输出产品
 generate_target all [get_files ${bd_name}.bd]
 
-# 创建HDL wrapper
+# 创建HDL wrapper用于仿真
 make_wrapper -files [get_files ${bd_name}.bd] -top
-add_files -norecurse [get_property directory [current_project]]/managed_ip_project.srcs/sources_1/bd/${bd_name}/hdl/${bd_name}_wrapper.v
+set wrapper_file [get_property directory [current_project]]/managed_ip_project.srcs/sources_1/bd/${bd_name}/hdl/${bd_name}_wrapper.v
+add_files -norecurse $wrapper_file
 
-# 生成块设计的仿真文件
+# 生成仿真文件 - 专门为Questasim优化
+puts "INFO: Generating simulation files for Questasim..."
 generate_target simulation [get_files ${bd_name}.bd]
-export_simulation -of_objects [get_files ${bd_name}.bd] -directory ${bd_dir}/sim -ip_user_files_dir ${bd_dir}/sim/ip_user_files -ipstatic_source_dir ${bd_dir}/sim/ipstatic -lib_map_path [list {modelsim=${bd_dir}/sim/lib/questa} {questa=${bd_dir}/sim/lib/questa} {riviera=${bd_dir}/sim/lib/riviera} {activehdl=${bd_dir}/sim/lib/activehdl}] -use_ip_compiled_libs -force
 
-puts "INFO: HBM block design $bd_name is generated"
+# 导出仿真文件到指定目录，专门支持Questasim
+export_simulation -of_objects [get_files ${bd_name}.bd] -directory ${bd_dir}/sim \
+  -simulator questa \
+  -ip_user_files_dir ${bd_dir}/sim/ip_user_files \
+  -ipstatic_source_dir ${bd_dir}/sim/ipstatic \
+  -lib_map_path [list {questa=${bd_dir}/sim/lib/questa}] \
+  -use_ip_compiled_libs -force
 
-# 3. 生成HBM时钟生成器IP（如果需要的话）
-set hbm_clk_gen_ip "hbm_clk_gen"
-set hbm_clk_gen_xci ${ip_build_dir}/${hbm_clk_gen_ip}/${hbm_clk_gen_ip}.xci
+puts "INFO: design_1 HBM block design for Questasim simulation is generated"
 
-# 创建HBM时钟生成器
-create_ip -name clk_wiz -vendor xilinx.com -library ip -version 6.0 -module_name $hbm_clk_gen_ip -dir $ip_build_dir
-set_property -dict [list \
-  CONFIG.PRIM_SOURCE {Differential_clock_capable_pin} \
-  CONFIG.PRIM_IN_FREQ {100.000} \
-  CONFIG.CLKOUT1_USED {true} \
-  CONFIG.CLKOUT1_REQUESTED_OUT_FREQ {100.000} \
-  CONFIG.CLK_IN1_BOARD_INTERFACE {hbm_clk} \
-  CONFIG.USE_BOARD_FLOW {true} \
-  CONFIG.USE_RESET {false} \
-  CONFIG.USE_LOCKED {true} \
-  CONFIG.RESET_TYPE {ACTIVE_LOW} \
-  CONFIG.CLKIN1_JITTER_PS {50.0} \
-  CONFIG.MMCM_DIVCLK_DIVIDE {1} \
-  CONFIG.MMCM_CLKFBOUT_MULT_F {10.000} \
-  CONFIG.MMCM_CLKIN1_PERIOD {10.000} \
-  CONFIG.MMCM_CLKOUT0_DIVIDE_F {10.000} \
-  CONFIG.CLKOUT1_JITTER {115.831} \
-  CONFIG.CLKOUT1_PHASE_ERROR {87.180} \
-] [get_ips $hbm_clk_gen_ip]
+# 复制wrapper文件到仿真目录
+file copy -force $wrapper_file ${bd_dir}/sim/${bd_name}_wrapper.v
 
-generate_target all [get_files $hbm_clk_gen_xci]
-create_ip_run [get_files -of_objects [get_fileset sources_1] $hbm_clk_gen_xci]
-launch_runs ${hbm_clk_gen_ip}_synth_1 -jobs 8
-wait_on_run ${hbm_clk_gen_ip}_synth_1
-puts "INFO: $hbm_clk_gen_ip is generated"
-
-puts "INFO: All HBM IPs and block design for simulation are generated"
+puts "INFO: design_1 HBM block design generation completed"
 puts "INFO: Block design files are located at: ${bd_dir}"
-puts "INFO: Block design simulation files are located at: ${bd_dir}/sim"
+puts "INFO: Questasim simulation files are located at: ${bd_dir}/sim"
+puts "INFO: Wrapper file: ${bd_dir}/sim/${bd_name}_wrapper.v"

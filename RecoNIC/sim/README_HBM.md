@@ -48,11 +48,8 @@ python run_testcase_hbm.py regression
 ## 常用命令
 
 ```bash
-# 使用Xsim（默认）
+# GUI模式运行HBM仿真（仅支持Questasim）
 python run_testcase_hbm.py -roce -tc read_2rdma_hbm -gui
-
-# 使用Questasim
-python run_testcase_hbm.py -roce -tc read_2rdma_hbm -questasim -gui
 
 # 无GUI模式（批处理）
 python run_testcase_hbm.py -roce -tc read_2rdma_hbm
