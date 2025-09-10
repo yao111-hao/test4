@@ -44,36 +44,16 @@ echo "编译design_1 HBM块设计..."
 set bd_sim_dir "../build/ip/design_1/sim"
 
 if {[file exists $bd_sim_dir]} {
-    echo "找到HBM块设计仿真文件"
+    echo "找到HBM块设计仿真文件在: $bd_sim_dir"
     
-    # 编译块设计相关的所有VHDL文件
-    set vhdl_files [glob -nocomplain \
-        "$bd_sim_dir/*.vhd" \
-        "$bd_sim_dir/ip_user_files/bd/design_1/ip/*/*.vhd" \
-        "$bd_sim_dir/ipstatic/**/*.vhd"]
-    
-    foreach vhdl_file $vhdl_files {
-        if {[file exists $vhdl_file]} {
-            vcom -64 -work reco $vhdl_file
-        }
-    }
-    
-    # 编译块设计相关的所有Verilog文件  
-    set vlog_files [glob -nocomplain \
-        "$bd_sim_dir/*.v" \
-        "$bd_sim_dir/ip_user_files/bd/design_1/ip/*/*.v" \
-        "$bd_sim_dir/ipstatic/**/*.v"]
-        
-    foreach vlog_file $vlog_files {
-        if {[file exists $vlog_file]} {
-            vlog -64 -work reco $vlog_file
-        }
-    }
-    
-    # 编译design_1的wrapper
+    # 编译design_1_wrapper
     if {[file exists "$bd_sim_dir/design_1_wrapper.v"]} {
         vlog -64 -work reco "$bd_sim_dir/design_1_wrapper.v"
         echo "design_1_wrapper.v 编译完成"
+    } else {
+        echo "ERROR: design_1_wrapper.v 不存在于 $bd_sim_dir"
+        echo "请检查 design_1 块设计是否正确生成"
+        exit 1
     }
     
     echo "design_1 HBM块设计编译完成"
