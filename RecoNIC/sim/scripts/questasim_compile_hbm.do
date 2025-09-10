@@ -37,37 +37,55 @@ vcom -64 -work reco \
 vlog -64 -work reco \
 "../build/ip/axi_protocol_checker/sim/axi_protocol_checker.v" \
 
-# 编译HBM块设计
-echo "编译HBM块设计..."
+# 编译design_1 HBM块设计
+echo "编译design_1 HBM块设计..."
 
-# 编译块设计中的IP文件
+# 设置块设计仿真目录
 set bd_sim_dir "../build/ip/design_1/sim"
+
 if {[file exists $bd_sim_dir]} {
-    # 编译块设计仿真文件
-    set sim_files [glob -nocomplain "$bd_sim_dir/*.vhd" "$bd_sim_dir/*.v" "$bd_sim_dir/*/*.vhd" "$bd_sim_dir/*/*.v"]
-    foreach sim_file $sim_files {
-        if {[string match "*.vhd" $sim_file]} {
-            vcom -64 -work reco $sim_file
-        } elseif {[string match "*.v" $sim_file]} {
-            vlog -64 -work reco $sim_file
+    echo "找到HBM块设计仿真文件"
+    
+    # 编译块设计相关的所有VHDL文件
+    set vhdl_files [glob -nocomplain \
+        "$bd_sim_dir/*.vhd" \
+        "$bd_sim_dir/ip_user_files/bd/design_1/ip/*/*.vhd" \
+        "$bd_sim_dir/ipstatic/**/*.vhd"]
+    
+    foreach vhdl_file $vhdl_files {
+        if {[file exists $vhdl_file]} {
+            vcom -64 -work reco $vhdl_file
+        }
+    }
+    
+    # 编译块设计相关的所有Verilog文件  
+    set vlog_files [glob -nocomplain \
+        "$bd_sim_dir/*.v" \
+        "$bd_sim_dir/ip_user_files/bd/design_1/ip/*/*.v" \
+        "$bd_sim_dir/ipstatic/**/*.v"]
+        
+    foreach vlog_file $vlog_files {
+        if {[file exists $vlog_file]} {
+            vlog -64 -work reco $vlog_file
         }
     }
     
     # 编译design_1的wrapper
     if {[file exists "$bd_sim_dir/design_1_wrapper.v"]} {
         vlog -64 -work reco "$bd_sim_dir/design_1_wrapper.v"
+        echo "design_1_wrapper.v 编译完成"
     }
+    
+    echo "design_1 HBM块设计编译完成"
 } else {
-    echo "WARNING: HBM块设计仿真文件不存在，请先运行 setup_hbm_simulation.sh"
+    echo "ERROR: HBM块设计仿真文件不存在于 $bd_sim_dir"
+    echo "请先运行: cd scripts && ./setup_hbm_simulation.sh"
+    exit 1
 }
 
 # 编译HBM时钟生成器
 vlog -64 -incr -work reco \
 "$sim_src_dir/hbm_clk_gen.sv" \
-
-# 编译HBM系统仿真包装器
-vlog -64 -incr -work reco \
-"$sim_src_dir/design_1_sim_wrapper.sv" \
 
 # 编译主要的RecoNIC源文件
 echo "编译RecoNIC源文件..."
@@ -75,6 +93,35 @@ echo "编译RecoNIC源文件..."
 # 编译包文件
 vlog -64 -incr -work reco -sv \
 "$sim_src_dir/rn_tb_pkg.sv"
+
+# 编译open_nic_shell及其相关文件
+echo "编译open_nic_shell..."
+set base_src_dir "$root_dir/base_nics/open-nic-shell/src"
+
+# 编译macros文件
+vlog -64 -incr -work reco \
+"$base_src_dir/open_nic_shell_macros.vh" \
+
+# 编译各个子系统
+vlog -64 -incr -work reco -sv \
+"$base_src_dir/system_config/system_config.sv" \
+"$base_src_dir/system_config/system_config_register.v" \
+"$base_src_dir/system_config/system_config_address_map.sv" \
+"$base_src_dir/qdma_subsystem/qdma_subsystem.sv" \
+"$base_src_dir/packet_adapter/packet_adapter.sv" \
+"$base_src_dir/packet_adapter/packet_adapter_rx.sv" \
+"$base_src_dir/packet_adapter/packet_adapter_tx.sv" \
+"$base_src_dir/packet_adapter/packet_adapter_register.v" \
+"$base_src_dir/cmac_subsystem/cmac_subsystem.sv" \
+"$base_src_dir/rdma_subsystem/rdma_subsystem_wrapper.sv" \
+"$base_src_dir/rdma_subsystem/rdma_subsystem.sv" \
+"$base_src_dir/box_250mhz/box_250mhz.sv" \
+"$base_src_dir/box_322mhz/box_322mhz.sv" \
+"$base_src_dir/utility/axi_5to2_interconnect_to_sys_mem.sv" \
+
+# 编译主要的open_nic_shell
+vlog -64 -incr -work reco -sv \
+"$base_src_dir/open_nic_shell.sv" \
 
 # 编译基础模块
 vlog -64 -incr -work reco -sv \
@@ -84,15 +131,9 @@ vlog -64 -incr -work reco -sv \
 "$sim_src_dir/rn_tb_driver.sv" \
 "$sim_src_dir/rn_tb_checker.sv" \
 
-# 编译互连模块
+# 编译互连模块（仿真中仍需要这些用于系统内存连接）
 vlog -64 -incr -work reco -sv \
-"$sim_src_dir/axi_3to1_interconnect_to_dev_mem.sv" \
 "$sim_src_dir/axi_5to2_interconnect_to_sys_mem.sv" \
-"$sim_src_dir/axil_3to1_crossbar_wrapper.sv" \
-
-# 编译RDMA包装器
-vlog -64 -incr -work reco -sv \
-"$sim_src_dir/rdma_rn_wrapper.sv" \
 
 # 编译主要testbench文件
 echo "编译testbench文件..."

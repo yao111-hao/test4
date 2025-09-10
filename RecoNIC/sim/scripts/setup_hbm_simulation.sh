@@ -7,7 +7,7 @@
 #==============================================================================
 set -Eeuo pipefail
 
-echo "setup_hbm_simulation.sh - 设置RecoNIC HBM仿真环境"
+echo "setup_hbm_simulation.sh - 设置RecoNIC HBM仿真环境（仅支持Questasim）"
 
 VIVADO_VERSION=2021.2
 
@@ -16,6 +16,11 @@ if [[ -z "${VIVADO_DIR:-}" ]]; then
     echo "ERROR: Please set VIVADO_DIR environment variable"
     echo "Example: export VIVADO_DIR=/your/vivado/installation/path/Vivado/2021.2"
     exit 1
+fi
+
+if [[ -z "${COMPILED_LIB_DIR:-}" ]]; then
+    echo "WARNING: COMPILED_LIB_DIR未设置，运行仿真时需要此环境变量"
+    echo "Example: export COMPILED_LIB_DIR=/your/vivado/compiled_lib_dir/for/questasim"
 fi
 
 cur_dir=$(pwd)
@@ -62,5 +67,5 @@ else
 fi
 
 echo "INFO: HBM仿真环境设置完成"
-echo "INFO: 现在可以运行仿真了"
-echo "示例: python ../run_testcase.py -roce -tc read_2rdma -gui"
+echo "INFO: 现在可以运行HBM仿真了（仅支持Questasim）"
+echo "示例: python ../run_testcase_hbm.py -roce -tc read_2rdma_hbm -gui"
