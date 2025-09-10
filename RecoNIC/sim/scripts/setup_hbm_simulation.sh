@@ -53,16 +53,34 @@ echo "INFO: 正在生成HBM仿真环境..."
 
 # 第一步：生成基础仿真IP
 echo "============================================"
-echo "步骤1: 生成基础仿真IP"
+echo "步骤1: 生成基础仿真IP（使用内联创建）"
 echo "============================================"
+echo "正在生成: axi_mm_bram, axi_sys_mm, axi_protocol_checker"
+
 $VIVADO_DIR/bin/vivado -mode batch -source gen_vivado_ip_hbm.tcl -tclargs $board_repo_arg
 
 if [[ $? -ne 0 ]]; then
+    echo ""
     echo "ERROR: 基础IP生成失败"
+    echo "故障排除建议："
+    echo "  1. 检查Vivado版本: vivado -version"
+    echo "  2. 检查许可证状态"
+    echo "  3. 检查磁盘空间"
+    echo "  4. 运行测试脚本: ./test_ip_generation.sh"
     exit 1
 fi
 
+echo ""
 echo "INFO: 基础IP生成成功"
+
+# 验证IP生成
+echo "验证IP生成结果..."
+./test_ip_generation.sh
+
+if [[ $? -ne 0 ]]; then
+    echo "ERROR: IP验证失败"
+    exit 1
+fi
 
 # 第二步：生成design_1 HBM块设计
 echo ""
